@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Food Delivery MCP - Chat Agent</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🍕 Food Delivery MCP</h1>
+            <p>Chat con tu agente de pedidos inteligente</p>
+        </div>
+        
+        <div class="chat-container" id="chatContainer">
+            <div class="message bot">
+                <div class="message-content">
+                    <div class="welcome-message">
+                        <h2>¡Bienvenido!</h2>
+                        <p>Soy tu asistente inteligente de pedidos de comida.</p>
+                        <p style="margin-top: 15px;"><strong>¿Qué puedo hacer?</strong></p>
+                        <p>🔍 Buscar restaurantes por tipo de comida</p>
+                        <p>📋 Ver menús de restaurantes</p>
+                        <p>🛒 Procesar tu pedido</p>
+                        <p style="margin-top: 15px; font-size: 13px; color: #999;">💡 Prueba: "Quiero pizza" o "Muéstrame sushi"</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-area">
+            <input 
+                type="text" 
+                id="messageInput" 
+                placeholder="Escribe tu mensaje..." 
+                autocomplete="off"
+            >
+            <div class="button-group">
+                <button id="sendBtn">✓ Enviar</button>
+                <button id="clearBtn">🔄 Limpiar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
