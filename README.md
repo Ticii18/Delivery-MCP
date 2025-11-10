@@ -1,64 +1,126 @@
-1. Objetivo General
-El objetivo de este trabajo es aplicar de forma integral los conocimientos adquiridos en la
-materia (especialmente en las Unidades 2 a 5) para diseñar, desarrollar y documentar una
-solución de software basada en IA que resuelva un "caso de uso de la vida real".
-El entregable final no es solo un trabajo académico, sino la idea es que el estudiante, tenga
-un proyecto de portfolio profesional, listo para ser demostrado a futuros empleadores.
-2. Requerimientos Comunes (Obligatorios para TODOS los proyectos)
-Independientemente del tema que elijan, todos los grupos deben entregar lo siguiente:
-1. Repositorio en GitHub:
-○ El proyecto debe estar en un repositorio público de GitHub.
-○ El enlace al repositorio será el entregable principal.
-2. README.md:
-○ Este es el documento más importante para un portfolio. Debe incluir:
-1. Título del Proyecto: Claro y profesional.
-2. Descripción del Problema: Explicar el "caso de la vida real" que
-están solucionando y para quién.
-3. Demo (GIF Animado): Una demostración visual corta (5-10
-segundos) de la aplicación funcionando. Es fundamental.
-4. Stack Tecnológico: Listar las librerías, modelos y frameworks clave
-(Ej: PyTorch, LangChain, ChromaDB, Ollama, Gemini SDK,
-Streamlit).
-5. Instrucciones de Instalación: Cómo un tercero puede clonar el repo e
-instalar las dependencias (debe incluir un archivo requirements.txt).
-6. Instrucciones de Uso: Cómo ejecutar la aplicación (Ej: streamlit run
-app.py).
-3. Archivo requirements.txt:
-○ Un archivo de texto simple con todas las librerías de Python necesarias
-(generado con pip freeze > requirements.txt).
+# Delivery MCP — Agente de Pedidos (HTML + JavaScript frontend)
 
-4. Código Fuente (.py o .ipynb):
-○ El código debe estar comentado, explicando las decisiones de diseño más
-importantes.
-○ Se valora la separación del código en archivos lógicos (ej. app.py, utils.py,
-rag_core.py).
+Proyecto de ejemplo que expone un servidor MCP (Model Context Protocol) en
+Python y una interfaz cliente ligera implementada con HTML y JavaScript
+(archivos: `index.html`, `app.js`, `styles.css`). Este repositorio NO usa
+Streamlit: la UI está en la carpeta raíz como archivos estáticos.
+
+---
+
+## Descripción del problema (caso de la vida real)
+
+Problema real: muchos restaurantes pequeños, foodtrucks y comercios locales
+reciben pedidos de múltiples canales (teléfono, WhatsApp, redes sociales) y
+no cuentan con una solución técnica mínima para centralizar y automatizar
+esas órdenes. El resultado es pérdida de pedidos, errores de toma de nota,
+tiempos de preparación imprecisos y esfuerzo manual administrativo.
+
+Casos concretos:
+- Un restaurante recibe llamadas y mensajes con pedidos simultáneos y debe
+  anotar todo manualmente en papel o en hojas de cálculo.
+- Un foodtruck quiere ofrecer un menú actualizado en su web y recibir pedidos
+  sin pagar por una plataforma de terceros.
+
+Público objetivo:
+- Propietarios de restaurantes pequeños y negocio local (sin equipo dev).
+- Equipos técnicos que buscan un prototipo rápido para integrar menús y pedidos.
 
 
-2. MCP (Model Context Protocol)
-Requisitos:
-● El sistema debe contar con una interfaz de chat simple
-● Todas las herramientas deben estar documentadas, con descripciones para cada
-argumento. En caso de usar salida estructurada para las herramientas, documentarlas
-también.
-● El sistema debe manejar los errores que pudieran ocurrir en las herramientas. Debe
-retornarse un mensaje que el modelo pueda usar para avisar al usuario y/o reintentar la
-llamada con otros argumentos.
-● El sistema no debe responder consultas que no tengan que ver con su tarea. En su
-lugar, debe explicar por qué la tarea es imposible con las herramientas que tiene
-disponibles.
-● El sistema debe tener un botón de limpieza de chat, para comenzar una nueva
-conversación.
+Beneficios que proporciona este proyecto:
+- Probar en minutos un flujo completo (buscar por tipo, ver menú, realizar
+  pedido) sin montar infraestructura compleja.
+- Evitar errores de transcripción al centralizar peticiones en un agente.
+---
 
-● Agente de Pedidos de Comida (Delivery):
-○ Intención: Un cliente quiere pedir comida.
-○ Herramientas (Tools): buscar_restaurantes(tipo_comida),
-ver_menu(restaurante), realizar_pedido(items, direccion).
-○ Requerimientos:
+## Qué hay en este repositorio
 
-i. El sistema debe permitir a un cliente acceder a una lista de restaurantes
-disponibles.
-ii. El sistema debe permitir a un cliente consultar el menú de cada
-restaurante (simulado).
-iii. El sistema tomará el pedido del cliente y le preguntará su dirección
-para realizar el pedido (simulado).
+- `index.html` — interfaz web (HTML) que carga `app.js`.
+- `app.js` — lógica cliente en JavaScript: realiza peticiones JSON-RPC HTTP al
+  servidor MCP para listar restaurantes, ver menús y simular pedidos.
+- `styles.css` — estilos para la interfaz web.
+- `server.py` — servidor MCP (herramientas: `buscar_restaurantes`, `ver_menu`,
+  `realizar_pedido`, `limpiar_chat`, `no_soy_capaz`).
+- `requirements.txt` — dependencias de Python para ejecutar `server.py`.
 
+---
+
+## Stack tecnológico
+
+- Frontend: HTML + JavaScript (Vanilla JS). No se requiere Node para ejecutar la
+  UI si la abres como archivo estático, aunque en algunos casos es preferible
+  servirla desde un servidor HTTP local para evitar problemas de CORS.
+- Backend: Python con `mcp` (servidor MCP) y `requests` (en client-side si se usa
+  desde Python). El servidor se lanza con `mcp.run(transport="streamable-http")`.
+
+---
+
+## Instalación (rápida)
+
+Clona el repositorio y crea un entorno virtual, luego instala dependencias:
+
+```bash
+git clone https://github.com/Ticii18/Delivery-MCP
+cd Delivery-MCP
+uv venv env
+source env/Scripts/activate   # en bash sobre Windows
+pip install -r requirements.txt
+```
+
+Si no tienes `requirements.txt` actualizado, genera uno desde tu entorno:
+
+```bash
+pip freeze > requirements.txt
+```
+
+---
+
+
+## API / Herramientas MCP (resumen)
+
+Estas herramientas están expuestas por `server.py` y el frontend las consume
+mediante JSON-RPC HTTP.
+
+- buscar_restaurantes(tipo_comida: str) -> list
+  - Devuelve una lista de restaurantes para el tipo dado (ej.: "pizza").
+
+- ver_menu(restaurante: str) -> list
+  - Devuelve el menú del restaurante o un mensaje de error si no existe.
+
+- realizar_pedido(items: list, direccion: str) -> str
+  - Valida que haya al menos un item y una dirección; devuelve confirmación.
+
+- limpiar_chat() -> str
+  - Limpia la conversación (simbólico en modo stateless).
+
+- no_soy_capaz(pregunta: str) -> str
+  - Mensaje cuando la consulta está fuera del alcance.
+
+---
+
+## Manejo común de problemas
+
+- Si la UI no recibe respuesta, confirma que `python server.py` esté corriendo.
+- Si el navegador bloquea peticiones por CORS, sirve `index.html` con
+  `python -m http.server` u otro servidor estático local.
+- Si ves errores del tipo `Bad Request: Missing session ID`, revisa que el
+  servidor esté en modo `stateless_http` en `server.py` (así evita requerir
+  cabeceras de sesión del cliente).
+
+---
+
+## Pruebas rápidas (manual)
+
+1. Buscar restaurantes por tipo: desde la UI, pedir "sushi" → debería aparecer
+   `Sushinato` y `Sushi Express`.
+2. Ver menú: pedir menú de `Don Pizza` → listará las pizzas definidas en
+   `menus_db`.
+3. Realizar pedido: seleccionar items y dar una dirección → recibirás una
+   confirmación simulada.
+
+---
+
+## Demo (GIF)
+
+// [GIF]
+
+---
