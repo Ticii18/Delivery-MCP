@@ -1,162 +1,93 @@
-import json
-import requests
 import streamlit as st
-import re
+import asyncio
+from langchain_mcp_adapters.client import MultiServerMCPClient
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain.agents import create_agent
+import os
+from dotenv import load_dotenv
 
-MCP_URL = "http://localhost:8000/mcp"
+load_dotenv()
+api_key = os.getenv("API_KEY")
 
-def normalize_result(res):
-    if isinstance(res, dict):
-        sc = res.get("structuredContent")
-        if isinstance(sc, dict) and isinstance(sc.get("result"), list):
-            return sc["result"]
-        content = res.get("content")
-        if isinstance(content, list):
-            texts = [c.get("text") for c in content 
-                    if isinstance(c, dict) and c.get("type") == "text" and c.get("text")]
-            if texts:
-                return texts
-    return res
+model = ChatGoogleGenerativeAI(model="gemini-2.5-flash", api_key=api_key)
 
-def render_bulleted_list(title: str, items, icon: str = "•"):
-    st.markdown(f"### {title}")
-    if isinstance(items, list) and items:
-        for it in items:
-            st.markdown(f"- {icon} {it}")
-    elif isinstance(items, list) and not items:
-        st.info("No se encontraron resultados.")
-    elif isinstance(items, str):
-        st.write(items)
-    else:
-        st.json(items)
-
-def call_tool(tool_name: str, arguments: dict):
-    payload = {
-        "jsonrpc": "2.0",
-        "id": "1",
-        "method": "tools/call",
-        "params": {"name": tool_name, "arguments": arguments},
+client = MultiServerMCPClient({
+    "demo": {
+        "transport": "streamable_http",
+        "url": "http://localhost:8000/mcp",
     }
-    headers = {
-        "Content-Type": "application/json",
-        "Accept": "application/json, text/event-stream"
-    }
-    resp = requests.post(MCP_URL, headers=headers, data=json.dumps(payload), timeout=15)
-    resp.raise_for_status()
-    data = resp.json()
-    if "error" in data:
-        raise RuntimeError(data["error"])
-    return data.get("result")
+})
 
-st.set_page_config(page_title="FoodDelivery MCP Chat", page_icon="🍕", layout="centered")
-st.title("🍕 Chat FoodDelivery MCP")
+# === FUNCIONES ASÍNCRONAS ===
+async def get_agent():
+    tools = await client.get_tools()
+    agent = create_agent(model, tools)
+    return agent
 
-# Limpiar historial al presionar el botón
+async def run_agent(agent, chat_history):
+    # Convertir historial de Streamlit en formato LangChain
+    messages = [{"role": m["role"], "content": m["content"]} for m in chat_history]
+
+    response = await agent.ainvoke(
+        {"messages": messages},
+        stream_mode="messages"
+    )
+
+    full_response = ""
+    for (message, metadata) in response:
+        if hasattr(message, "content"):
+            msg_content = message.content
+            if isinstance(msg_content, list):
+                # ✅ Evita duplicación de listas anidadas
+                for item in msg_content:
+                    if isinstance(item, dict) and "text" in item:
+                        full_response += item["text"] + "\n"
+                    elif isinstance(item, str):
+                        full_response += item + "\n"
+            else:
+                full_response += str(msg_content) + "\n"
+        else:
+            full_response += str(message) + "\n"
+
+    return full_response.strip()
+
+# === INTERFAZ DE STREAMLIT ===
+st.set_page_config(page_title="Chat FoodDelivery MCP", page_icon="🍕", layout="centered")
+
+
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-if st.button("🧹 Limpiar chat", key="clear"):
-    try:
-        try:
-            call_tool("limpiar_chat", {})
-        except Exception:
-            pass
+
+col1, col2 = st.columns([3,1])
+with col1:
+    st.title("🍕 Chat FoodDelivery MCP")
+with col2:
+    if st.button("🧹 Limpiar chat"):
         st.session_state.messages = []
-        st.experimental_rerun()
-    except Exception:
-        st.info("Historial local limpio. Si aún ves mensajes, recarga la página.")
+        st.rerun()
 
-for m in st.session_state.messages:
-    with st.chat_message(m["role"]):
-        st.markdown(m["content"])
+st.write("Ejemplo: 'quiero una pizza americana de Pizza Fest', luego 'mandalo a Napoleón Uriburu' — el agente recordará el contexto y completará el pedido.")
 
-def tipo_comida_normalizado(texto):
-    tipos = ["pizza", "pizzas", "sushi", "hamburguesa", "hamburguesas"]
-    for t in tipos:
-        if t in texto:
-            return t.rstrip("s")
-    return ""
+# Mostrar historial
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
 
-prompt = st.chat_input(
-    "Pregunta libre: 'dame restaurantes', 'menú Don Pizza', 'menú de hamburguesas', 'pedir Pizza Margarita a Calle 123', etc."
-)
-
-if prompt:
-    st.session_state.messages.append({"role": "user", "content": prompt})
+# Entrada del usuario
+if user_input := st.chat_input("Escribe tu mensaje..."):
+    st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
-        st.markdown(prompt)
+        st.markdown(user_input)
 
-    reply = ""
-    input_text = prompt.lower()
-    try:
-        if re.search(r"(restaurantes|lista\s*de\s*restaurantes|mostr(a|ame).*restaurantes|dime\s*restaurantes)", input_text):
-            tipo = tipo_comida_normalizado(input_text)
-            result = call_tool("buscar_restaurantes", {"tipo_comida": tipo}) if tipo else call_tool("buscar_restaurantes", {"tipo_comida": ""})
-            items = normalize_result(result)
-            with st.chat_message("assistant"):
-                render_bulleted_list(f"Restaurantes{f' de {tipo}' if tipo else ''}", items, icon="🍽️")
+    with st.chat_message("assistant"):
+        message_placeholder = st.empty()
+        message_placeholder.markdown("_Pensando..._")
 
-        elif re.search(r"men[uú]|ver\s*men[uú]|qué hay en|quiero saber el men[uú]", input_text):
-            match_de = re.search(r"men[uú]\s*de\s*([\w\sáéíóúñ]+)", input_text)
-            match_en = re.search(r"en\s*([\w\sáéíóúñ]+)", input_text)
-            nombre = ""
-            if match_de:
-                nombre = match_de.group(1).strip()
-            elif match_en:
-                nombre = match_en.group(1).strip()
-            tipo = tipo_comida_normalizado(nombre)
-            if tipo:
-                result = call_tool("buscar_restaurantes", {"tipo_comida": tipo})
-                items = normalize_result(result)
-                with st.chat_message("assistant"):
-                    render_bulleted_list(f"Restaurantes de {tipo}", items, icon="🍽️")
-            else:
-                nombre = nombre.replace(" de", "").strip()
-                result = call_tool("ver_menu", {"restaurante": nombre})
-                items = normalize_result(result)
-                with st.chat_message("assistant"):
-                    render_bulleted_list(f"Menú de {nombre}", items, icon="🍕")
-        elif re.search(r"(pedir|quiero pedir|haz un pedido|realiza un pedido)", input_text):
-            match = re.search(r"(pedir|pedido)\s*(.*?)(?:\s*a\s*)(.+)", prompt, re.IGNORECASE)
-            if match:
-                items_text = match.group(2).strip()
-                direccion = match.group(3).strip()
-                items = [s.strip() for s in items_text.split(",") if s.strip()]
-                result = call_tool("realizar_pedido", {"items": items, "direccion": direccion})
-                with st.chat_message("assistant"):
-                    if isinstance(result, str) and result.lower().startswith("error"):
-                        st.error(result)
-                    else:
-                        st.success(result)
-            else:
-                reply = "Formato esperado: por ejemplo 'pedir Pizza Margarita a Calle 123' o 'haz un pedido de Pizza Margarita a Calle 123'."
-
-        elif re.search(r"(limpiar|reset|empezar de nuevo|nuevo chat)", input_text):
-            result = call_tool("limpiar_chat", {})
-            st.session_state.messages = []
-            st.experimental_rerun()
-
-        else:
-            tipo = tipo_comida_normalizado(input_text)
-            if tipo:
-                result = call_tool("buscar_restaurantes", {"tipo_comida": tipo})
-                items = normalize_result(result)
-                with st.chat_message("assistant"):
-                    render_bulleted_list(f"Restaurantes de {tipo}", items, icon="🍽️")
-            else:
-                reply = (
-                    "No entendí la consulta. Prueba frases como:\n"
-                    "- Mostrame los restaurantes de pizza\n"
-                    "- Quiero menú de Don Pizza\n"
-                    "- Hazme un pedido de Pizza Margarita a Calle 123"
-                )
-
-    except Exception as e:
-        reply = f"Error: {e}"
-
-    if reply:
-        with st.chat_message("assistant"):
-            st.markdown(reply)
-
-    st.session_state.messages.append({"role": "assistant", "content": reply or "(renderizado)"})
-
+        try:
+            agent = asyncio.run(get_agent())
+            response_text = asyncio.run(run_agent(agent, st.session_state.messages))
+            message_placeholder.markdown(response_text)
+            st.session_state.messages.append({"role": "assistant", "content": response_text})
+        except Exception as e:
+            message_placeholder.markdown(f"⚠️ Error: {e}")
