@@ -121,6 +121,6 @@ mediante JSON-RPC HTTP.
 
 ## Demo (GIF)
 
-// [GIF]
+![GIF DE UTILIZACION DEL SISTEMA](https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExYTZ1Zm1jdGM5d2JmZHgxajBrZDV1cGp2NGZyc2dnZXhvNXloYmp5YyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/zjp9AbiUHP98buC5Gl/giphy.gif)
 
 ---

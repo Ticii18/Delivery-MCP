@@ -4,6 +4,7 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.agents import create_agent
 import os
+import json
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -18,40 +19,70 @@ client = MultiServerMCPClient({
     }
 })
 
-# === FUNCIONES ASÍNCRONAS ===
 async def get_agent():
     tools = await client.get_tools()
     agent = create_agent(model, tools)
     return agent
 
 async def run_agent(agent, chat_history):
-    # Convertir historial de Streamlit en formato LangChain
+    # Convertir historial de Streamlit a formato LangChain
     messages = [{"role": m["role"], "content": m["content"]} for m in chat_history]
 
-    response = await agent.ainvoke(
-        {"messages": messages},
-        stream_mode="messages"
-    )
+    response = await agent.ainvoke({"messages": messages}, stream_mode="messages")
 
+    # Usamos un conjunto para evitar duplicados exactos
+    seen_chunks = set()
     full_response = ""
+
     for (message, metadata) in response:
-        if hasattr(message, "content"):
-            msg_content = message.content
-            if isinstance(msg_content, list):
-                # ✅ Evita duplicación de listas anidadas
-                for item in msg_content:
-                    if isinstance(item, dict) and "text" in item:
-                        full_response += item["text"] + "\n"
-                    elif isinstance(item, str):
-                        full_response += item + "\n"
-            else:
-                full_response += str(msg_content) + "\n"
-        else:
-            full_response += str(message) + "\n"
+        if not hasattr(message, "content"):
+            continue
+
+        msg_content = message.content
+
+        if isinstance(msg_content, list):
+            for item in msg_content:
+                text_part = ""
+
+                if isinstance(item, dict) and "text" in item:
+                    text_part = item["text"]
+                elif isinstance(item, str):
+                    text_part = item
+                else:
+                    continue
+
+                # Filtrar contenido tipo lista/JSON
+                if text_part.strip().startswith("[") or text_part.strip().startswith("{"):
+                    try:
+                        json.loads(text_part)
+                        continue
+                    except Exception:
+                        pass
+
+                text_part = text_part.strip()
+
+                # Evitar repeticiones exactas
+                if text_part and text_part not in seen_chunks:
+                    seen_chunks.add(text_part)
+                    full_response += text_part + "\n"
+
+        # --- Si es string ---
+        elif isinstance(msg_content, str):
+            if msg_content.strip().startswith("[") or msg_content.strip().startswith("{"):
+                try:
+                    json.loads(msg_content)
+                    continue
+                except Exception:
+                    pass
+
+            msg_content = msg_content.strip()
+            if msg_content and msg_content not in seen_chunks:
+                seen_chunks.add(msg_content)
+                full_response += msg_content + "\n"
 
     return full_response.strip()
 
-# === INTERFAZ DE STREAMLIT ===
+
 st.set_page_config(page_title="Chat FoodDelivery MCP", page_icon="🍕", layout="centered")
 
 
