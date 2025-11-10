@@ -63,13 +63,13 @@ git clone https://github.com/Ticii18/Delivery-MCP
 cd Delivery-MCP
 uv venv env
 source env/Scripts/activate   # en bash sobre Windows
-pip install -r requirements.txt
+uv pip install -r requirements.txt
 ```
 
 Si no tienes `requirements.txt` actualizado, genera uno desde tu entorno:
 
 ```bash
-pip freeze > requirements.txt
+uv pip freeze > requirements.txt
 ```
 
 ---
