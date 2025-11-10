@@ -13,7 +13,7 @@ def normalize_result(res):
         content = res.get("content")
         if isinstance(content, list):
             texts = [c.get("text") for c in content 
-                     if isinstance(c, dict) and c.get("type") == "text" and c.get("text")]
+                    if isinstance(c, dict) and c.get("type") == "text" and c.get("text")]
             if texts:
                 return texts
     return res

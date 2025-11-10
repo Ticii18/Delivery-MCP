@@ -12,7 +12,7 @@ mcp = FastMCP("FoodDeliveryMCP", stateless_http=True, json_response=True)
 restaurantes_db: dict[str, list[str]] = {
     "pizza": ["Don Pizza", "Pizza Fest"],
     "sushi": ["Sushinato", "Sushi Express"],
-    "hamburguesas": ["Burger Time", "Big Burger"]
+    "hamburguesa": ["Burger Time", "Big Burger"]
 }
 
 
@@ -50,16 +50,20 @@ def buscar_restaurantes(tipo_comida: str) -> list[str]:
     """
     try:
         if not tipo_comida:
-            return []
-        # Normaliza el tipo de comida con casefold para comparar.
+            todos_los_restaurantes = []
+            for lista_de_tipo in restaurantes_db.values():
+                todos_los_restaurantes.extend(lista_de_tipo)
+            return todos_los_restaurantes
+
         tipo_normalizado = tipo_comida.casefold()
         for key in restaurantes_db:
             if key.casefold() == tipo_normalizado:
                 return restaurantes_db[key]
+        
         return []
+
     except Exception as e:
         return [f"Error: {e}"]
-
 
 @mcp.tool("ver_menu")
 def ver_menu(restaurante: str) -> list[str]:
@@ -77,7 +81,7 @@ def ver_menu(restaurante: str) -> list[str]:
     """
     try:
             if not restaurante:
-                return ["Error: restaurante no proporcionado."]
+                return []
 
             objetivo = None
             buscado = restaurante.casefold()
@@ -85,9 +89,8 @@ def ver_menu(restaurante: str) -> list[str]:
                 if nombre.casefold() == buscado:
                     objetivo = nombre
                     break
-
             if not objetivo:
-                return ["Error: restaurante no encontrado."]
+                return []
 
             return menus_db[objetivo]
     except Exception as e:
